@@ -17,9 +17,9 @@
 
 ## 宣传视频
 
-<a href="docs/media/promo-zh.mp4"><img src="docs/media/cover-zh.png" width="640" alt="橘猫陪读宣传片"></a>
+<a href="docs/media/promo-zh.mp4"><img src="docs/media/promo-zh.gif" width="640" alt="橘猫陪读演示"></a>
 
-[观看 45 秒宣传片（MP4）](docs/media/promo-zh.mp4) · [GIF 预览](docs/media/promo-zh.gif)
+[观看 45 秒宣传片（MP4）](docs/media/promo-zh.mp4)
 
 
 ## 已测试设备
