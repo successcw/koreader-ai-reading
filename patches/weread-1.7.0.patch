@@ -1,0 +1,60 @@
+--- a/weread/ui/library_view.lua
++++ b/weread/ui/library_view.lua
+@@ -676,6 +676,8 @@
+     on_switch = nil,
+     on_search = nil,
+     on_refresh = nil,
++    on_settings = nil,
++    on_exit = nil,
+     on_sort = nil,
+     on_filter = nil,
+     on_select = nil,
+@@ -877,6 +879,13 @@
+         end
+         buttons[#buttons + 1] = row
+     end
++    if self.on_settings then
++        buttons[#buttons + 1] = {{ text = _("Settings"), callback = action(self.on_settings) }}
++    end
++    if self.on_exit then
++        buttons[#buttons + 1] = {{ text = _("Exit KOReader"), callback = action(self.on_exit) }}
++    end
++
+     dialog = ButtonDialog:new{ title = _("Bookshelf"), buttons = buttons }
+     dialog.movable[1].radius = 0
+     UIManager:show(dialog)
+@@ -1197,6 +1206,8 @@
+         on_filter = callbacks.on_filter,
+         on_select = callbacks.on_select,
+         on_page_changed = callbacks.on_page_changed,
++        on_settings = callbacks.on_settings,
++        on_exit = callbacks.on_exit,
+     }
+     UIManager:show(view)
+     return view
+--- a/weread/ui/library.lua
++++ b/weread/ui/library.lua
+@@ -505,6 +505,12 @@
+             else
+                 self:showBookRecord(book)
+             end
++        end,
++        on_settings = function()
++            if self.ui and self.ui.menu then self.ui.menu:onShowMenu() end
++        end,
++        on_exit = function()
++            UIManager:quit()
+         end,
+         on_page_changed = function(new_page)
+             self.shelf_view_pages[mode] = new_page
+@@ -685,6 +691,10 @@
+     if self.library_db then self.library_db:putBook(saved) end
+     if type(saved.chapters) ~= "table" and self.library_db then
+         saved.chapters = self.library_db:getChapters(book_id)
++    end
++    -- Open cached books directly; fall back to details when nothing is cached.
++    if file_exists(self:getFullBookCachePath(saved)) or self:bookRecordHasDownload(saved) then
++        if self:openBookForReading(saved) then return end
+     end
+     if not has_book_details(cached) then
+         self:refreshBookRecord(saved, nil, { automatic = true })

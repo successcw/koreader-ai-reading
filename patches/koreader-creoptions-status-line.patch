@@ -1,0 +1,11 @@
+--- a/frontend/ui/data/creoptions.lua
++++ b/frontend/ui/data/creoptions.lua
+@@ -669,7 +669,7 @@
+                 name_text = _("Alt Status Bar"),
+                 toggle = {C_("Alt status bar", "off"), C_("Alt status bar", "on")},
+                 values = {1, 0}, -- Note that 0 means crengine header status line enabled, and 1 means disabled
+-                default_value = 1,
++                default_value = 0,
+                 args = {1, 0},
+                 event = "SetStatusLine",
+                 name_text_hold_callback = optionsutil.showValues,
