@@ -15,6 +15,13 @@
 - **AI 上下文上报**：翻页时把书名、章节、页码、进度、当前页正文通过本地 HTTP 发给 iPhone。
 - **默认顶部状态栏**：新书默认开启 Alt Status Bar，并隐藏书名/作者给页码留空间。
 
+## 宣传视频
+
+<a href="docs/media/promo-zh.mp4"><img src="docs/media/cover-zh.png" width="640" alt="橘猫陪读宣传片"></a>
+
+[观看 45 秒宣传片（MP4）](docs/media/promo-zh.mp4) · [GIF 预览](docs/media/promo-zh.gif)
+
+
 ## 已测试设备
 
 | 项目 | 值 |

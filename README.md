@@ -15,6 +15,13 @@ A customized KOReader setup for Kindle: open straight into the WeRead bookshelf,
 - **AI context bridge**: sends book, chapter, page, progress, and current-page text to the iPhone over local HTTP.
 - **Default Alt Status Bar** for new books, with title/author hidden to leave room for page info.
 
+## Demo
+
+<a href="docs/media/promo-zh.mp4"><img src="docs/media/cover-zh.png" width="640" alt="Reading Companion promo"></a>
+
+[Watch the 45-second promo (MP4)](docs/media/promo-zh.mp4) · [GIF preview](docs/media/promo-zh.gif)
+
+
 ## Tested device
 
 | Item | Value |
