@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Release stale WeRead standby guards after a timeout so Kindle can auto suspend again.
+
 ## 0.1.0
 
 - Initial KOReader customization set.

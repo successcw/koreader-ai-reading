@@ -1,0 +1,22 @@
+--- a/weread/lib/standby_guard.lua
++++ b/weread/lib/standby_guard.lua
+@@ -10,6 +10,7 @@
+ 
+ local Guard = {}
+ local active_count = 0
++local GUARD_TIMEOUT_SECONDS = 10 * 60
+ 
+ local function platform_services()
+     return require("device"), require("pluginshare")
+@@ -40,6 +41,11 @@
+     active_count = active_count + 1
+     UIManager:preventStandby()
+     if active_count == 1 then prevent_platform_standby() end
++    -- A cancelled or crashed job may never release its token. Release stale
++    -- guards on a timer so Kindle can still enter its normal auto suspend.
++    UIManager:scheduleIn(GUARD_TIMEOUT_SECONDS, function()
++        Guard.release(token)
++    end)
+     return token
+ end
+ 

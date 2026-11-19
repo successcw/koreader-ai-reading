@@ -6,6 +6,10 @@ local Device = require("device")
 local screen = Device.screen
 local http = require("socket.http")
 local ltn12 = require("ltn12")
+local NetworkMgr = require("ui/network/manager")
+
+-- Do not let a missing hotspot freeze KOReader for the socket default.
+http.TIMEOUT = 3
 
 local AiBridge = WidgetContainer:extend{
     name = "ai_bridge",
@@ -36,10 +40,31 @@ end
 function AiBridge:init()
     self.config = loadConfig(self.path)
     self.last_sent = 0
+    self.retry_scheduled = false
+    self.retry_generation = 0
 end
 
 function AiBridge:onReaderReady()
     self:scheduleSend()
+end
+
+function AiBridge:onNetworkConnected()
+    logger.info("ai_bridge: network connected")
+    self:scheduleSend(nil, true)
+end
+
+function AiBridge:scheduleRetry()
+    if self.retry_scheduled then return end
+    self.retry_scheduled = true
+    self.retry_generation = (self.retry_generation or 0) + 1
+    local generation = self.retry_generation
+    UIManager:scheduleIn(3, function()
+        if generation ~= self.retry_generation then return end
+        self.retry_scheduled = false
+        if self.ui and self.ui.document then
+            self:sendContext()
+        end
+    end)
 end
 
 function AiBridge:onPageUpdate(pageno)
@@ -52,9 +77,9 @@ function AiBridge:onPosUpdate(pos, pageno)
     self:scheduleSend(pageno)
 end
 
-function AiBridge:scheduleSend(pageno)
+function AiBridge:scheduleSend(pageno, force)
     local now = os.time()
-    if now - (self.last_sent or 0) < 1 then return end
+    if not force and now - (self.last_sent or 0) < 1 then return end
     self.last_sent = now
     UIManager:scheduleIn(0.1, function()
         self:sendContext(pageno)
@@ -108,6 +133,21 @@ function AiBridge:sendContext(pageno)
         return
     end
 
+    -- Cheap network check: when Wi-Fi is still off, retry later instead of
+    -- blocking on a socket connect (which is what made the old flow wait for
+    -- the next page turn).
+    local connected = true
+    pcall(function()
+        if NetworkMgr and NetworkMgr.isConnected and not NetworkMgr:isConnected() then
+            connected = false
+        end
+    end)
+    if not connected then
+        logger.info("ai_bridge: no network, will retry")
+        self:scheduleRetry()
+        return
+    end
+
     local response = {}
     local ok, code = http.request{
         url = self.config.url,
@@ -123,6 +163,11 @@ function AiBridge:sendContext(pageno)
     logger.info("ai_bridge: response", tostring(ok), tostring(code), "chars", #body)
     if not ok or (code and code >= 400) then
         logger.warn("ai_bridge: send failed", tostring(code))
+        self:scheduleRetry()
+    else
+        -- Invalidate any retry that was queued before this successful send.
+        self.retry_generation = (self.retry_generation or 0) + 1
+        self.retry_scheduled = false
     end
 end
 

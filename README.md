@@ -14,6 +14,7 @@ A customized KOReader setup for Kindle: open straight into the WeRead bookshelf,
 - **Top status bar**: auto refresh, clock, page number, total pages, battery percentage, and Wi-Fi state.
 - **AI context bridge**: sends book, chapter, page, progress, and current-page text to the iPhone over local HTTP.
 - **Default Alt Status Bar** for new books, with title/author hidden to leave room for page info.
+- **Auto sleep preserved**: releases stale WeRead standby guards so Kindle can still suspend normally.
 
 ## Demo
 
@@ -32,6 +33,18 @@ A customized KOReader setup for Kindle: open straight into the WeRead bookshelf,
 | WeRead plugin | **v1.7.0** |
 
 Only this combination has been tested end-to-end. Other Kindle models or KOReader versions may work, but the patches are version-sensitive and are not guaranteed.
+
+## Credentials
+
+The Kindle side needs **no cloud API key**. The iPhone companion app needs:
+
+- **OpenCode Go API key** for AI replies;
+- optional **Tencent Cloud SecretId / SecretKey** for Chinese one-sentence ASR (`一句话识别`, 5,000 free calls/month).
+
+Setup links and details are in the app repository:
+https://github.com/successcw/reading-companion-ios#what-you-need-to-apply-for
+
+The `token` in `config.lua` is only a local shared secret between Kindle and the app; it is not a cloud key.
 
 ## Requirements
 

@@ -60,6 +60,22 @@ else
     echo "WARN: weread.koplugin not found; install it first if you want WeRead integration." >&2
 fi
 
+# Release stale WeRead standby guards so Kindle can auto suspend again.
+GUARD_FILE="$KOREADER/plugins/weread.koplugin/weread/lib/standby_guard.lua"
+GUARD_PATCH="$ROOT/patches/weread-1.7.0-standby-guard.patch"
+if [ -f "$GUARD_FILE" ] && [ -f "$GUARD_PATCH" ]; then
+    if grep -q 'GUARD_TIMEOUT_SECONDS' "$GUARD_FILE"; then
+        echo "WeRead standby guard already patched"
+    elif patch --batch --forward -p1 -d "$KOREADER/plugins/weread.koplugin" --dry-run \
+        < "$GUARD_PATCH" >/dev/null 2>&1; then
+        patch --batch --forward -p1 -d "$KOREADER/plugins/weread.koplugin" \
+            < "$GUARD_PATCH"
+        echo "Patched WeRead standby guard"
+    else
+        echo "WARN: standby guard patch did not apply." >&2
+    fi
+fi
+
 # Enable the native top status bar by default for new books.
 if [ -f "$KOREADER/frontend/ui/data/creoptions.lua" ]; then
     if patch --batch --forward -p1 -d "$KOREADER" --dry-run \

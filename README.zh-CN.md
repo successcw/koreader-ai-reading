@@ -14,6 +14,7 @@
 - **顶部状态栏**：自动刷新、时间、页码、总页数、电池百分比、WiFi 状态。
 - **AI 上下文上报**：翻页时把书名、章节、页码、进度、当前页正文通过本地 HTTP 发给 iPhone。
 - **默认顶部状态栏**：新书默认开启 Alt Status Bar，并隐藏书名/作者给页码留空间。
+- **保留自动锁屏**：修复微信读书后台任务遗留的防休眠标记，避免 Kindle 一直不睡。
 
 ## 宣传视频
 
@@ -32,6 +33,18 @@
 | 微信读书插件 | **v1.7.0** |
 
 目前只在这个组合上完整跑通。其他 Kindle 型号或 KOReader 版本可能可用，但补丁对版本敏感，不保证兼容。
+
+## 需要哪些 Key
+
+Kindle 侧本身**不需要云服务 Key**。iPhone App 需要：
+
+- **OpenCode Go API Key**：用于 AI 回答；
+- 可选的 **腾讯云 SecretId / SecretKey**：用于中文「一句话识别」，每月 5,000 次免费。
+
+申请入口和详细步骤见 App 仓库：
+https://github.com/successcw/reading-companion-ios#需要申请哪些-key
+
+`config.lua` 里的 `token` 只是 Kindle 和 App 之间的本地共享密钥，不是云服务 Key。
 
 ## 前置条件
 
