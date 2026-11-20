@@ -53,6 +53,11 @@ function AiBridge:onNetworkConnected()
     self:scheduleSend(nil, true)
 end
 
+function AiBridge:onNetworkDisconnected()
+    logger.info("ai_bridge: network disconnected, will retry")
+    self:scheduleRetry()
+end
+
 function AiBridge:scheduleRetry()
     if self.retry_scheduled then return end
     self.retry_scheduled = true
@@ -143,7 +148,12 @@ function AiBridge:sendContext(pageno)
         end
     end)
     if not connected then
-        logger.info("ai_bridge: no network, will retry")
+        logger.info("ai_bridge: no network, requesting Wi-Fi restore")
+        pcall(function()
+            if NetworkMgr and NetworkMgr.restoreWifiAsync then
+                NetworkMgr:restoreWifiAsync()
+            end
+        end)
         self:scheduleRetry()
         return
     end
