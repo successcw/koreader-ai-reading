@@ -8,11 +8,14 @@ local http = require("socket.http")
 local ltn12 = require("ltn12")
 local NetworkMgr = require("ui/network/manager")
 local socketutil = require("socketutil")
+local socket = require("socket")
 
 -- KOReader's socketutil resets socket.http.TIMEOUT to 60s. Set it around
 -- this request explicitly so an unreachable phone never freezes the UI.
 local REQUEST_BLOCK_TIMEOUT = 1
 local REQUEST_TOTAL_TIMEOUT = 3
+local DISCOVERY_PORT = 8791
+local DISCOVERY_REQUEST = "READING_COMPANION_DISCOVER_V1"
 
 local AiBridge = WidgetContainer:extend{
     name = "ai_bridge",
@@ -45,15 +48,67 @@ function AiBridge:init()
     self.last_sent = 0
     self.retry_scheduled = false
     self.retry_generation = 0
+    self.discovery_socket = nil
+    self.discovery_generation = 0
 end
 
 function AiBridge:onReaderReady()
+    self:discover()
     self:scheduleSend()
 end
 
 function AiBridge:onNetworkConnected()
     logger.info("ai_bridge: network connected")
+    self:discover()
     self:scheduleSend(nil, true)
+end
+
+function AiBridge:discover()
+    if self.discovery_socket then
+        self.discovery_socket:close()
+        self.discovery_socket = nil
+    end
+    self.discovery_generation = (self.discovery_generation or 0) + 1
+    local generation = self.discovery_generation
+    local udp = socket.udp()
+    udp:setsockname("*", 0)
+    udp:settimeout(0)
+    udp:setoption("broadcast", true)
+    local ok = pcall(function()
+        udp:sendto(DISCOVERY_REQUEST, "255.255.255.255", DISCOVERY_PORT)
+    end)
+    if not ok then
+        udp:close()
+        return
+    end
+    self.discovery_socket = udp
+    self:pollDiscovery(generation, 0)
+end
+
+function AiBridge:pollDiscovery(generation, attempts)
+    if generation ~= self.discovery_generation then return end
+    local udp = self.discovery_socket
+    if not udp then return end
+    local data = udp:receivefrom()
+    if data and type(data) == "string" then
+        local url = data:match('"url"%s*:%s*"([^"]+)"')
+        if url and url ~= "" then
+            logger.info("ai_bridge: discovered", url)
+            self.config.url = url
+            udp:close()
+            self.discovery_socket = nil
+            self:scheduleSend(nil, true)
+            return
+        end
+    end
+    if attempts < 20 then
+        UIManager:scheduleIn(0.2, function()
+            self:pollDiscovery(generation, attempts + 1)
+        end)
+    else
+        udp:close()
+        self.discovery_socket = nil
+    end
 end
 
 function AiBridge:onNetworkDisconnected()
@@ -182,6 +237,7 @@ function AiBridge:sendContext(pageno)
     logger.info("ai_bridge: response", tostring(ok), tostring(code), "chars", #body)
     if not ok or (code and code >= 400) then
         logger.warn("ai_bridge: send failed", tostring(code))
+        self:discover()
         self:scheduleRetry()
     else
         -- Invalidate any retry that was queued before this successful send.
