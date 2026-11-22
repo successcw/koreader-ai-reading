@@ -7,9 +7,12 @@ local screen = Device.screen
 local http = require("socket.http")
 local ltn12 = require("ltn12")
 local NetworkMgr = require("ui/network/manager")
+local socketutil = require("socketutil")
 
--- Do not let a missing hotspot freeze KOReader for the socket default.
-http.TIMEOUT = 3
+-- KOReader's socketutil resets socket.http.TIMEOUT to 60s. Set it around
+-- this request explicitly so an unreachable phone never freezes the UI.
+local REQUEST_BLOCK_TIMEOUT = 1
+local REQUEST_TOTAL_TIMEOUT = 3
 
 local AiBridge = WidgetContainer:extend{
     name = "ai_bridge",
@@ -63,7 +66,7 @@ function AiBridge:scheduleRetry()
     self.retry_scheduled = true
     self.retry_generation = (self.retry_generation or 0) + 1
     local generation = self.retry_generation
-    UIManager:scheduleIn(3, function()
+    UIManager:scheduleIn(10, function()
         if generation ~= self.retry_generation then return end
         self.retry_scheduled = false
         if self.ui and self.ui.document then
@@ -159,7 +162,8 @@ function AiBridge:sendContext(pageno)
     end
 
     local response = {}
-    local ok, code = http.request{
+    socketutil:set_timeout(REQUEST_BLOCK_TIMEOUT, REQUEST_TOTAL_TIMEOUT)
+    local request_ok, ok, code = pcall(http.request, {
         url = self.config.url,
         method = "POST",
         headers = {
@@ -169,7 +173,12 @@ function AiBridge:sendContext(pageno)
         },
         source = ltn12.source.string(body),
         sink = ltn12.sink.table(response),
-    }
+    })
+    socketutil:reset_timeout()
+    if not request_ok then
+        code = tostring(ok)
+        ok = nil
+    end
     logger.info("ai_bridge: response", tostring(ok), tostring(code), "chars", #body)
     if not ok or (code and code >= 400) then
         logger.warn("ai_bridge: send failed", tostring(code))
