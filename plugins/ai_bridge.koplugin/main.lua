@@ -74,9 +74,22 @@ function AiBridge:discover()
     udp:setsockname("*", 0)
     udp:settimeout(0)
     udp:setoption("broadcast", true)
-    local ok = pcall(function()
-        udp:sendto(DISCOVERY_REQUEST, "255.255.255.255", DISCOVERY_PORT)
-    end)
+    local targets = {
+        "255.255.255.255",
+        "172.20.10.255", -- iPhone hotspot
+        "192.168.43.255", -- common Android hotspot
+    }
+    if self.config.discovery_broadcast then
+        targets[#targets + 1] = self.config.discovery_broadcast
+    end
+    local ok = false
+    for _, host in ipairs(targets) do
+        local sent = pcall(function()
+            udp:sendto(DISCOVERY_REQUEST, host, DISCOVERY_PORT)
+        end)
+        ok = ok or sent
+        logger.info("ai_bridge: discovery sent", host)
+    end
     if not ok then
         udp:close()
         return

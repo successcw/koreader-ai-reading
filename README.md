@@ -86,7 +86,8 @@ return {
 }
 ```
 
-- `url`: the address shown on the iPhone app; usually auto-filled by LAN discovery.
+- `url`: fallback address shown on the iPhone app; LAN discovery normally updates it automatically.
+- `discovery_broadcast`: optional subnet broadcast (for example `192.168.1.255`) if the router drops `255.255.255.255`.
 - `token`: must match the token in the app settings.
 - `max_chars`: maximum current-page text per request.
 
