@@ -14,6 +14,7 @@ A customized KOReader setup for Kindle: open straight into the WeRead bookshelf,
 - **Top status bar**: auto refresh, clock, page number, total pages, battery percentage, and Wi-Fi state.
 - **AI context bridge**: sends book, chapter, page, progress, and current-page text to the iPhone over local HTTP.
 - **LAN discovery**: broadcasts on UDP `8791` to find the phone when switching between hotspot and home Wi-Fi.
+- The phone advertises `_reading-companion._tcp` with Bonjour/mDNS; Kindle keeps the UDP fallback because `.local` mDNS is not reliable on all Kindles.
 - **Default Alt Status Bar** for new books, with title/author hidden to leave room for page info.
 - **Auto sleep preserved**: releases stale WeRead standby guards so Kindle can still suspend normally.
 
