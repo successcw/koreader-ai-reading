@@ -162,6 +162,26 @@ function AiBridge:scheduleSend(pageno, force)
     end)
 end
 
+function AiBridge:urlCandidates()
+    local list, seen = {}, {}
+    local function add(url)
+        if type(url) == "string" and url ~= "" and not seen[url] then
+            seen[url] = true
+            list[#list + 1] = url
+        end
+    end
+    add(self.config.url)
+    if type(self.config.urls) == "table" then
+        for _, url in ipairs(self.config.urls) do add(url) end
+    else
+        -- Keep the two hotspot gateways as fallbacks when the user only
+        -- configured a home Wi-Fi address.
+        add("http://172.20.10.1:8790/context")
+        add("http://192.168.43.1:8790/context")
+    end
+    return list
+end
+
 function AiBridge:sendContext(pageno)
     if not self.ui or not self.ui.document then return end
     local doc = self.ui.document
@@ -229,27 +249,37 @@ function AiBridge:sendContext(pageno)
         return
     end
 
-    local response = {}
-    socketutil:set_timeout(REQUEST_BLOCK_TIMEOUT, REQUEST_TOTAL_TIMEOUT)
-    local request_ok, ok, code = pcall(http.request, {
-        url = self.config.url,
-        method = "POST",
-        headers = {
-            ["Content-Type"] = "application/json",
-            ["Content-Length"] = tostring(#body),
-            ["X-Companion-Token"] = self.config.token or "",
-        },
-        source = ltn12.source.string(body),
-        sink = ltn12.sink.table(response),
-    })
-    socketutil:reset_timeout()
-    if not request_ok then
-        code = tostring(ok)
-        ok = nil
+    local sent = false
+    local last_code = nil
+    for _, url in ipairs(self:urlCandidates()) do
+        local response = {}
+        socketutil:set_timeout(REQUEST_BLOCK_TIMEOUT, REQUEST_TOTAL_TIMEOUT)
+        local request_ok, ok, code = pcall(http.request, {
+            url = url,
+            method = "POST",
+            headers = {
+                ["Content-Type"] = "application/json",
+                ["Content-Length"] = tostring(#body),
+                ["X-Companion-Token"] = self.config.token or "",
+            },
+            source = ltn12.source.string(body),
+            sink = ltn12.sink.table(response),
+        })
+        socketutil:reset_timeout()
+        if not request_ok then
+            code = tostring(ok)
+            ok = nil
+        end
+        logger.info("ai_bridge: response", url, tostring(ok), tostring(code), "chars", #body)
+        if ok and not (code and code >= 400) then
+            self.config.url = url
+            sent = true
+            break
+        end
+        last_code = code
     end
-    logger.info("ai_bridge: response", tostring(ok), tostring(code), "chars", #body)
-    if not ok or (code and code >= 400) then
-        logger.warn("ai_bridge: send failed", tostring(code))
+    if not sent then
+        logger.warn("ai_bridge: send failed", tostring(last_code))
         self:discover()
         self:scheduleRetry()
     else

@@ -4,6 +4,9 @@ return {
     url = "http://172.20.10.1:8790/context",
     token = "change-me",
     max_chars = 4000,
+    -- Optional fallbacks; without this list the plugin adds the iPhone and
+    -- common Android hotspot gateways automatically.
+    -- urls = { "http://192.168.1.50:8790/context", "http://172.20.10.1:8790/context" },
     -- Optional: add the current LAN subnet broadcast for routers that drop 255.255.255.255.
     -- discovery_broadcast = "192.168.1.255",
 }
