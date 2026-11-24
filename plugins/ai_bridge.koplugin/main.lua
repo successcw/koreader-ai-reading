@@ -16,6 +16,7 @@ local REQUEST_BLOCK_TIMEOUT = 1
 local REQUEST_TOTAL_TIMEOUT = 3
 local DISCOVERY_PORT = 8791
 local DISCOVERY_REQUEST = "READING_COMPANION_DISCOVER_V1"
+local ACTIVE_RETRY_SECONDS = 30
 
 local AiBridge = WidgetContainer:extend{
     name = "ai_bridge",
@@ -49,14 +50,35 @@ function AiBridge:init()
     self.retry_scheduled = false
     self.retry_generation = 0
     self.retry_count = 0
+    self.suspended = false
     self.discovery_socket = nil
     self.discovery_generation = 0
 end
 
 function AiBridge:onReaderReady()
+    self.suspended = false
     self.retry_count = 0
     self:discover()
     self:scheduleSend()
+end
+
+function AiBridge:onSuspend()
+    logger.info("ai_bridge: suspended; stopping network retries")
+    self.suspended = true
+    self.retry_generation = (self.retry_generation or 0) + 1
+    self.retry_scheduled = false
+    if self.discovery_socket then
+        self.discovery_socket:close()
+        self.discovery_socket = nil
+    end
+end
+
+function AiBridge:onResume()
+    logger.info("ai_bridge: resumed; discovery + sync")
+    self.suspended = false
+    self.retry_count = 0
+    self:discover()
+    self:scheduleSend(nil, true)
 end
 
 function AiBridge:onNetworkConnected()
@@ -67,6 +89,7 @@ function AiBridge:onNetworkConnected()
 end
 
 function AiBridge:discover()
+    if self.suspended then return end
     if self.discovery_socket then
         self.discovery_socket:close()
         self.discovery_socket = nil
@@ -134,16 +157,13 @@ function AiBridge:onNetworkDisconnected()
 end
 
 function AiBridge:scheduleRetry()
+    if self.suspended then return end
     if self.retry_scheduled then return end
     self.retry_count = (self.retry_count or 0) + 1
-    if self.retry_count > 3 then
-        logger.info("ai_bridge: give up retries until next page/network event")
-        return
-    end
     self.retry_scheduled = true
     self.retry_generation = (self.retry_generation or 0) + 1
     local generation = self.retry_generation
-    UIManager:scheduleIn(10, function()
+    UIManager:scheduleIn(ACTIVE_RETRY_SECONDS, function()
         if generation ~= self.retry_generation then return end
         self.retry_scheduled = false
         if self.ui and self.ui.document then
@@ -163,6 +183,7 @@ function AiBridge:onPosUpdate(pos, pageno)
 end
 
 function AiBridge:scheduleSend(pageno, force)
+    if self.suspended then return end
     local now = os.time()
     if not force and now - (self.last_sent or 0) < 1 then return end
     self.retry_count = 0
@@ -193,6 +214,7 @@ function AiBridge:urlCandidates()
 end
 
 function AiBridge:sendContext(pageno)
+    if self.suspended then return end
     if not self.ui or not self.ui.document then return end
     local doc = self.ui.document
     local page = pageno or (self.ui.view and self.ui.view.footer and self.ui.view.footer.pageno) or 1
