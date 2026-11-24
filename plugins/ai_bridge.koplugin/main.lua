@@ -48,17 +48,20 @@ function AiBridge:init()
     self.last_sent = 0
     self.retry_scheduled = false
     self.retry_generation = 0
+    self.retry_count = 0
     self.discovery_socket = nil
     self.discovery_generation = 0
 end
 
 function AiBridge:onReaderReady()
+    self.retry_count = 0
     self:discover()
     self:scheduleSend()
 end
 
 function AiBridge:onNetworkConnected()
     logger.info("ai_bridge: network connected")
+    self.retry_count = 0
     self:discover()
     self:scheduleSend(nil, true)
 end
@@ -126,11 +129,17 @@ end
 
 function AiBridge:onNetworkDisconnected()
     logger.info("ai_bridge: network disconnected, will retry")
+    self.retry_count = 0
     self:scheduleRetry()
 end
 
 function AiBridge:scheduleRetry()
     if self.retry_scheduled then return end
+    self.retry_count = (self.retry_count or 0) + 1
+    if self.retry_count > 3 then
+        logger.info("ai_bridge: give up retries until next page/network event")
+        return
+    end
     self.retry_scheduled = true
     self.retry_generation = (self.retry_generation or 0) + 1
     local generation = self.retry_generation
@@ -156,6 +165,7 @@ end
 function AiBridge:scheduleSend(pageno, force)
     local now = os.time()
     if not force and now - (self.last_sent or 0) < 1 then return end
+    self.retry_count = 0
     self.last_sent = now
     UIManager:scheduleIn(0.1, function()
         self:sendContext(pageno)
@@ -273,6 +283,7 @@ function AiBridge:sendContext(pageno)
         logger.info("ai_bridge: response", url, tostring(ok), tostring(code), "chars", #body)
         if ok and not (code and code >= 400) then
             self.config.url = url
+            self.retry_count = 0
             sent = true
             break
         end
@@ -280,7 +291,9 @@ function AiBridge:sendContext(pageno)
     end
     if not sent then
         logger.warn("ai_bridge: send failed", tostring(last_code))
-        self:discover()
+        if not self.config.url or self.retry_count < 1 then
+            self:discover()
+        end
         self:scheduleRetry()
     else
         -- Invalidate any retry that was queued before this successful send.
