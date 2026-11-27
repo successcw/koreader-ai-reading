@@ -304,7 +304,8 @@ function AiBridge:sendContext(pageno)
         end
         logger.info("ai_bridge: response", url, tostring(ok), tostring(code), "chars", #body)
         if ok and not (code and code >= 400) then
-            self.config.url = url
+            -- Keep the configured order stable. A successful hotspot request
+            -- must not make the next home-Wi-Fi page try the hotspot first.
             self.retry_count = 0
             sent = true
             break
