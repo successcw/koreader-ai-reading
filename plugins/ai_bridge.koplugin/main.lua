@@ -113,8 +113,14 @@ function AiBridge:pollWake(generation)
     local udp = self.wake_socket
     if not udp then return end
     local data = udp:receivefrom()
-    if data == WAKE_REQUEST then
-        logger.info("ai_bridge: app wake received")
+    if data and type(data) == "string" and data:sub(1, #WAKE_REQUEST) == WAKE_REQUEST then
+        local wake_url = data:match("|(http://[^|]+)$")
+        if wake_url then
+            self.config.url = wake_url
+            logger.info("ai_bridge: app wake received", wake_url)
+        else
+            logger.info("ai_bridge: app wake received")
+        end
         self.retry_count = 0
         self:scheduleSend(nil, true)
     end
