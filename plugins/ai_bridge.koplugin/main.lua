@@ -16,6 +16,8 @@ local REQUEST_BLOCK_TIMEOUT = 1
 local REQUEST_TOTAL_TIMEOUT = 3
 local DISCOVERY_PORT = 8791
 local DISCOVERY_REQUEST = "READING_COMPANION_DISCOVER_V1"
+local WAKE_PORT = 8792
+local WAKE_REQUEST = "READING_COMPANION_WAKE_V1"
 local ACTIVE_RETRY_SECONDS = 30
 
 local AiBridge = WidgetContainer:extend{
@@ -53,12 +55,15 @@ function AiBridge:init()
     self.suspended = false
     self.discovery_socket = nil
     self.discovery_generation = 0
+    self.wake_socket = nil
+    self.wake_generation = 0
 end
 
 function AiBridge:onReaderReady()
     self.suspended = false
     self.retry_count = 0
     self:discover()
+    self:startWakeListener()
     self:scheduleSend()
 end
 
@@ -71,6 +76,11 @@ function AiBridge:onSuspend()
         self.discovery_socket:close()
         self.discovery_socket = nil
     end
+    if self.wake_socket then
+        self.wake_socket:close()
+        self.wake_socket = nil
+        self.wake_generation = (self.wake_generation or 0) + 1
+    end
 end
 
 function AiBridge:onResume()
@@ -78,7 +88,41 @@ function AiBridge:onResume()
     self.suspended = false
     self.retry_count = 0
     self:discover()
+    self:startWakeListener()
     self:scheduleSend(nil, true)
+end
+
+function AiBridge:startWakeListener()
+    if self.suspended or self.wake_socket then return end
+    local udp = socket.udp()
+    local ok = pcall(function()
+        udp:setsockname("*", WAKE_PORT)
+        udp:settimeout(0)
+    end)
+    if not ok then
+        udp:close()
+        return
+    end
+    self.wake_socket = udp
+    self.wake_generation = (self.wake_generation or 0) + 1
+    self:pollWake(self.wake_generation)
+end
+
+function AiBridge:pollWake(generation)
+    if generation ~= self.wake_generation then return end
+    local udp = self.wake_socket
+    if not udp then return end
+    local data = udp:receivefrom()
+    if data == WAKE_REQUEST then
+        logger.info("ai_bridge: app wake received")
+        self.retry_count = 0
+        self:scheduleSend(nil, true)
+    end
+    if not self.suspended and self.wake_socket then
+        UIManager:scheduleIn(1, function()
+            self:pollWake(generation)
+        end)
+    end
 end
 
 function AiBridge:onNetworkConnected()
