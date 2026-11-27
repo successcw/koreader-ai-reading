@@ -125,7 +125,7 @@ function AiBridge:pollWake(generation)
         self:scheduleSend(nil, true)
     end
     if not self.suspended and self.wake_socket then
-        UIManager:scheduleIn(1, function()
+        UIManager:scheduleIn(2, function()
             self:pollWake(generation)
         end)
     end
@@ -210,6 +210,10 @@ function AiBridge:scheduleRetry()
     if self.suspended then return end
     if self.retry_scheduled then return end
     self.retry_count = (self.retry_count or 0) + 1
+    if self.retry_count > 3 then
+        logger.info("ai_bridge: retry limit reached; waiting for page/network/wake")
+        return
+    end
     self.retry_scheduled = true
     self.retry_generation = (self.retry_generation or 0) + 1
     local generation = self.retry_generation
